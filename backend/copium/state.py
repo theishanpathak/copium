@@ -30,7 +30,9 @@ class PipelineState(BaseModel):
     role: str | None = None
 
     # Written by: research (Phase 7)
-    research_notes: str | None = None
+    what_they_do: str | None = None
+    notable_facts: list[str] | None = None
+    has_research_material: bool | None = None
 
     # Written by: roast (Phase 8)
     roast: str | None = None
