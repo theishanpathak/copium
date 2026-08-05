@@ -13,8 +13,22 @@ TOKEN_FILE = "token.json"
 JOB_APPS_LABEL_ID = "Label_2983195907014674210"
 
 
+def _write_credentials_from_env() -> None:
+    """Write client_secret.json/token.json from env vars, for CI where no local files exist."""
+    client_secret_json = os.environ.get("GMAIL_CLIENT_SECRET_JSON")
+    token_json = os.environ.get("GMAIL_TOKEN_JSON")
+ 
+    if client_secret_json and not os.path.exists(CLIENT_SECRET_FILE):
+        with open(CLIENT_SECRET_FILE, "w") as f:
+            f.write(client_secret_json)
+ 
+    if token_json and not os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, "w") as f:
+            f.write(token_json)
+
 def get_gmail_service() -> Resource:
     """Authenticate with Gmail, reusing/refreshing a saved token when possible."""
+    _write_credentials_from_env()
     creds: Credentials | None = None
 
     if os.path.exists(TOKEN_FILE):
