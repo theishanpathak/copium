@@ -1,5 +1,9 @@
 backend/.env
+backend/client_secret.json
+backend/token.json
+
 frontend/.env.local
+
 __pycache__/
 *.pyc
 .venv/
