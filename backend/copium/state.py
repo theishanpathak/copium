@@ -34,8 +34,9 @@ class PipelineState(BaseModel):
     notable_facts: list[str] | None = None
     has_research_material: bool | None = None
 
-    # Written by: roast (Phase 8)
+   # Written by: roast (Phase 8)
     roast: str | None = None
+    roast_source_fact: str | None = None
 
     # Written by: render (Phase 11)
     card_url: str | None = None
