@@ -18,7 +18,18 @@ jobs:
         working-directory: backend
         run: uv sync
 
+      - name: Check if this is actually a Job Apps change
+        id: gate
+        working-directory: backend
+        env:
+          GMAIL_CLIENT_SECRET_JSON: ${{ secrets.GMAIL_CLIENT_SECRET_JSON }}
+          GMAIL_TOKEN_JSON: ${{ secrets.GMAIL_TOKEN_JSON }}
+        run: |
+          RESULT=$(uv run -m copium.gate)
+          echo "relevant=$RESULT" >> "$GITHUB_OUTPUT"
+
       - name: Run pipeline
+        if: steps.gate.outputs.relevant == 'true'
         working-directory: backend
         env:
           HISTORY_ID: ${{ github.event.client_payload.historyId }}
