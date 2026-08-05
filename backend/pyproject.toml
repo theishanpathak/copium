@@ -1,0 +1,17 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "google-api-python-client>=2.198.0",
+    "google-auth>=2.56.2",
+    "google-auth-oauthlib>=1.4.0",
+    "langchain-anthropic>=1.5.3",
+    "langfuse>=4.14.2",
+    "langgraph>=1.2.10",
+    "python-dotenv>=1.2.2",
+    "supabase>=2.31.0",
+    "tavily-python>=0.7.27",
+]
