@@ -1,0 +1,28 @@
+name: Renew Gmail watch
+
+on:
+  schedule:
+    - cron: "33 3 * * *"   # daily, 03:33 UTC
+  workflow_dispatch:
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync deps
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: Renew watch
+        working-directory: backend
+        env:
+          GMAIL_CLIENT_SECRET_JSON: ${{ secrets.GMAIL_CLIENT_SECRET_JSON }}
+          GMAIL_TOKEN_JSON: ${{ secrets.GMAIL_TOKEN_JSON }}
+        run: uv run python -m copium.gmail_watch
