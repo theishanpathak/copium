@@ -46,9 +46,10 @@ def search_news(company: str) -> list[dict]:
 
 
 def search_overview(company: str) -> list[dict]:
-    """What the company does, how big it is, what stage."""
+    """What the company does and what it has been doing. Deliberately avoids
+    funding and headcount keywords, which crowd out more specific material."""
     response = tavily.search(
-        f"{company} company what it does employees funding stage",
+        f"{company} company products launch acquisition customers offices",
         max_results=MAX_RESULTS,
     )
     return _relevant(company, response.get("results", []))
