@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str
     OPENAI_MODEL: str = "gpt-4o-mini"
+    ROAST_MODEL: str = "gpt-4o"
     TAVILY_API_KEY: str
 
 
