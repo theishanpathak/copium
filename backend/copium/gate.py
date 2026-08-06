@@ -1,55 +1,70 @@
-"""Stopgap relevance gate: checks whether a Job Apps message arrived recently.
+"""Stopgap relevance gate: finds Job Apps messages that arrived recently.
 
 Gmail's watch() fires on ANY mailbox change, not just Job Apps changes, since
 history tracking is mailbox-wide. This script is a temporary filter run as the
-first CI step -- it prints "true" or "false" to stdout so the workflow can
-skip the rest of the pipeline when nothing Job-Apps-relevant actually happened.
+first CI step -- it prints the id of every recent Job Apps message, one per
+line, so the workflow can skip the rest of the pipeline when the output is
+empty and otherwise knows exactly which messages to process.
 
 This is NOT the fully correct fix (that requires tracking the last-processed
-historyId and diffing against it via history.list(), which belongs in
-Phase 10 once Supabase is wired up for state). This is just good enough to
-stop wasted Action runs today.
+historyId and diffing against it via history.list(), which belongs in Phase 10
+once Supabase is wired up for state). The interface is the permanent part: this
+step's job is to answer "which messages should the pipeline handle," and the
+Phase 10 version will answer it properly without changing what consumes it.
 """
 
-import sys
 from datetime import datetime, timedelta, timezone
 
 from copium.gmail_auth import JOB_APPS_LABEL_ID, get_gmail_service
 
+WINDOW_MINUTES = 5
+SCAN_LIMIT = 10
 
-def has_recent_job_apps_message(minutes: int = 5) -> bool:
-    """Check whether the most recent Job Apps message arrived within the last N minutes.
+
+def recent_job_apps_messages(minutes: int = WINDOW_MINUTES) -> list[str]:
+    """Return the ids of Job Apps messages that arrived within the last N minutes.
+
+    Checks several recent messages rather than only the newest, because two
+    rejections can land seconds apart and a single-message check would silently
+    drop all but the last one.
 
     Args:
         minutes: how far back to consider a message "recent."
 
     Returns:
-        bool: True if a Job Apps message arrived within the window, False otherwise.
+        Message ids, newest first. Empty when nothing relevant arrived.
     """
     service = get_gmail_service()
-    results = (
+    listing = (
         service.users()
         .messages()
-        .list(userId="me", labelIds=[JOB_APPS_LABEL_ID], maxResults=1)
+        .list(userId="me", labelIds=[JOB_APPS_LABEL_ID], maxResults=SCAN_LIMIT)
         .execute()
     )
-    messages = results.get("messages", [])
-    if not messages:
-        return False
 
-    most_recent = (
-        service.users()
-        .messages()
-        .get(userId="me", id=messages[0]["id"], format="metadata")
-        .execute()
-    )
-    internal_date_ms = int(most_recent["internalDate"])
-    message_time = datetime.fromtimestamp(internal_date_ms / 1000, tz=timezone.utc)
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    recent: list[str] = []
 
-    return message_time > cutoff
+    for stub in listing.get("messages", []):
+        message = (
+            service.users()
+            .messages()
+            .get(userId="me", id=stub["id"], format="metadata")
+            .execute()
+        )
+        arrived = datetime.fromtimestamp(
+            int(message["internalDate"]) / 1000, tz=timezone.utc
+        )
+
+        if arrived <= cutoff:
+            # Gmail returns newest first, so everything after this is older too.
+            break
+
+        recent.append(stub["id"])
+
+    return recent
 
 
 if __name__ == "__main__":
-    is_relevant = has_recent_job_apps_message()
-    print("true" if is_relevant else "false", file=sys.stdout)
+    for message_id in recent_job_apps_messages():
+        print(message_id)
