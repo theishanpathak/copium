@@ -5,6 +5,29 @@ from supabase import Client, create_client
 from copium.config.settings import settings
 
 client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SECRET_KEY)
+SINGLE_USER = "00000000-0000-0000-0000-000000000000"
+
+
+def get_cursor() -> int | None:
+    """Return the last processed historyId, or None if never set."""
+    response = (
+        client.table("gmail_cursor")
+        .select("history_id")
+        .eq("user_id", SINGLE_USER)
+        .execute()
+    )
+    return int(response.data[0]["history_id"]) if response.data else None
+
+
+def set_cursor(history_id: int) -> None:
+    """Store the last processed historyId, inserting or updating as needed."""
+    client.table("gmail_cursor").upsert(
+        {
+            "user_id": SINGLE_USER,
+            "history_id": history_id,
+            "updated_at": "now()",
+        }
+    ).execute()
 
 def claim_message(message_id: str) -> bool:
     """Try to claim a message for processing.
