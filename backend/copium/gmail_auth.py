@@ -34,15 +34,22 @@ def get_gmail_service() -> Resource:
     if os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
+    if creds and creds.valid:
+        return build("gmail", "v1", credentials=creds)
 
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+    elif os.environ.get("CI"):
+        raise RuntimeError(
+            "Gmail credentials are unusable and no interactive login is possible "
+            "in CI. Re-run the auth flow locally and update GMAIL_TOKEN_JSON."
+        )
+    else:
+        flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET_FILE, SCOPES)
+        creds = flow.run_local_server(port=0)
+
+    with open(TOKEN_FILE, "w") as token:
+        token.write(creds.to_json())
 
     return build("gmail", "v1", credentials=creds)
 
