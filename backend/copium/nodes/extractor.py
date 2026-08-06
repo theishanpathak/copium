@@ -27,9 +27,6 @@ STRICT RULES:
 - Strip legal suffixes from the company name unless they're clearly part of the brand
   (e.g. "Pogo Technologies, Inc." -> "Pogo Technologies", but "Warner Bros." stays as is
   if that's how the company refers to itself).
-- The role is the job title as the company names it. Strip requisition/req numbers and
-  ID codes (e.g. "2026-86955 - Software Development Engineer" -> "Software Development
-  Engineer"). Keep meaningful qualifiers like "New Grad" or "Intern" if present.
 - If the role truly cannot be determined from the text, use "Unknown Role" rather than
   guessing. Do not invent a role that isn't stated or clearly implied.
 - Strip requisition/req numbers and ID codes from the role — these are typically a

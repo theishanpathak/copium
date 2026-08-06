@@ -4,13 +4,11 @@ from langfuse.openai import OpenAI
 from pydantic import BaseModel
 
 from copium.config.settings import settings
-from copium.state import PipelineState
+from copium.state import PipelineState, Category
 
 MAX_BODY_CHARS = 4000
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
-Category = Literal["rejection", "advancement", "acknowledgment", "offer", "other"]
 
 
 class Classification(BaseModel):
