@@ -1,9 +1,8 @@
 """Pipeline entrypoint and orchestrator.
 
-Reads message ids from the MESSAGE_IDS env var (set by the gate step in CI),
-fetches each email, and runs it through the graph. Fetching happens here rather
-than inside the graph so every node stays pure. All Langfuse setup lives here so
-the nodes stay unaware of tracing.
+Resolves which messages to process, runs each through the graph, and only
+advances the Gmail cursor once the whole batch has succeeded. Fetching happens
+here rather than inside the graph so every node stays pure.
 """
 
 import os
@@ -14,13 +13,15 @@ from langfuse.langchain import CallbackHandler
 
 from copium.config.settings import settings
 from copium.fetch import fetch_email
+from copium.gate import messages_to_process
 from copium.gmail_auth import get_gmail_service
 from copium.graph import graph
 from copium.storage.queries import (
-    claim_message, 
-    record_outcome, 
-    release_message, 
-    insert_rejection
+    claim_message,
+    insert_rejection,
+    record_outcome,
+    release_message,
+    set_cursor,
 )
 
 Langfuse(
@@ -32,11 +33,10 @@ langfuse = get_client()
 
 
 def process(message_id: str, service, handler: CallbackHandler) -> str:
-    """Fetch one email, run the graph, and report the outcome.
+    """Fetch one email, run the graph, store the result.
 
-    Claims the message first so concurrent runs triggered by the same email
-    skip instead of paying for the pipeline again. Releases the claim on
-    failure so the next trigger can retry.
+    Claims the message first so concurrent runs skip instead of paying for the
+    pipeline again. Releases the claim on failure so it can be retried.
     """
     if not claim_message(message_id):
         print("  already processed, skipping")
@@ -66,18 +66,26 @@ def process(message_id: str, service, handler: CallbackHandler) -> str:
 
 
 def main() -> None:
-    """Process every message id passed in MESSAGE_IDS."""
-    message_ids = os.environ.get("MESSAGE_IDS", "").split()
+    """Resolve messages, process them, advance the cursor if all succeeded."""
+    service = get_gmail_service()
+
+    override = os.environ.get("MESSAGE_IDS", "").split()
+    if override:
+        message_ids, new_cursor = override, None
+        print(f"MESSAGE_IDS override: {len(message_ids)} message(s)")
+    else:
+        message_ids, new_cursor = messages_to_process(service)
 
     if not message_ids:
-        print("no message ids given, nothing to do")
+        print("nothing to process")
+        if new_cursor is not None:
+            set_cursor(new_cursor)
         return
 
     print("\n" + "#" * 60)
     print(f"# COPIUM PIPELINE RUN — {len(message_ids)} message(s)")
     print("#" * 60)
 
-    service = get_gmail_service()
     handler = CallbackHandler()
     outcomes: dict[str, int] = {}
 
@@ -91,6 +99,17 @@ def main() -> None:
 
         outcomes[outcome] = outcomes.get(outcome, 0) + 1
 
+    failed = outcomes.get("errored", 0)
+
+    # Only advance past messages we actually handled. Leaving the cursor put
+    # means the next run re-offers the whole batch; claim_message no-ops the
+    # ones that already succeeded, so only the failure is retried.
+    if new_cursor is not None and not failed:
+        set_cursor(new_cursor)
+        print(f"\ncursor advanced to {new_cursor}")
+    elif failed:
+        print("\ncursor held back for retry", file=sys.stderr)
+
     print("\n" + "#" * 60)
     print("# RUN COMPLETE")
     for outcome, count in sorted(outcomes.items()):
@@ -99,7 +118,7 @@ def main() -> None:
 
     langfuse.flush()
 
-    if outcomes.get("errored"):
+    if failed:
         sys.exit(1)
 
 
