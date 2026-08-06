@@ -13,6 +13,7 @@ def start_watch() -> dict[str, Any]:
     service = get_gmail_service()
     request_body = {
         "labelIds": [JOB_APPS_LABEL_ID],
+        "labelFilterBehavior": "INCLUDE",
         "topicName": f"projects/{PROJECT_ID}/topics/{TOPIC_NAME}",
     }
 
