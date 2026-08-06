@@ -50,5 +50,7 @@ jobs:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL}}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY}}
           MESSAGE_IDS: ${{ steps.gate.outputs.message_ids }}
         run: uv run python -m main

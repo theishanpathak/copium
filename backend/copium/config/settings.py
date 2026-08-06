@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     LANGFUSE_PUBLIC_KEY: str
     LANGFUSE_SECRET_KEY: str
     LANGFUSE_HOST: str = "https://us.cloud.langfuse.com"
-
+    SUPABASE_URL: str
+    SUPABASE_SECRET_KEY: str
 
 settings = Settings()
