@@ -2,21 +2,17 @@
 
 from datetime import datetime, timezone
 from typing import Any
-from copium.gmail_auth import JOB_APPS_LABEL_ID, get_gmail_service
-
-PROJECT_ID = "copium-504602"
-TOPIC_NAME = "gmail-job-apps"
+from copium.gmail_auth import get_gmail_service
+from copium.config.settings import settings
 
 def start_watch() -> dict[str, Any]:
     """Register a Gmail watch on the Job Apps label, pushing to the Pub/Sub topic."""
-
     service = get_gmail_service()
     request_body = {
-        "labelIds": [JOB_APPS_LABEL_ID],
+        "labelIds": [settings.JOB_APPS_LABEL_ID],
         "labelFilterBehavior": "INCLUDE",
-        "topicName": f"projects/{PROJECT_ID}/topics/{TOPIC_NAME}",
+        "topicName": f"projects/{settings.GCP_PROJECT_ID}/topics/{settings.PUBSUB_TOPIC}",
     }
-
     return service.users().watch(userId="me", body=request_body).execute()
 
 
