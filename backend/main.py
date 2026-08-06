@@ -16,6 +16,12 @@ from copium.config.settings import settings
 from copium.fetch import fetch_email
 from copium.gmail_auth import get_gmail_service
 from copium.graph import graph
+from copium.storage.queries import (
+    claim_message, 
+    record_outcome, 
+    release_message, 
+    insert_rejection
+)
 
 Langfuse(
     public_key=settings.LANGFUSE_PUBLIC_KEY,
@@ -28,23 +34,35 @@ langfuse = get_client()
 def process(message_id: str, service, handler: CallbackHandler) -> str:
     """Fetch one email, run the graph, and report the outcome.
 
-    Returns:
-        "roasted" if a card was produced, otherwise the category that caused
-        the early exit.
+    Claims the message first so concurrent runs triggered by the same email
+    skip instead of paying for the pipeline again. Releases the claim on
+    failure so the next trigger can retry.
     """
-    email = fetch_email(service, message_id)
-    result = graph.invoke(
-        {"message_id": message_id, **email},
-        config={"callbacks": [handler], "run_name": f"copium-{message_id}"},
-    )
+    if not claim_message(message_id):
+        print("  already processed, skipping")
+        return "skipped"
+
+    try:
+        email = fetch_email(service, message_id)
+        result = graph.invoke(
+            {"message_id": message_id, **email},
+            config={"callbacks": [handler], "run_name": f"copium-{message_id}"},
+        )
+    except Exception:
+        release_message(message_id)
+        raise
 
     if result.get("roast"):
+        rejection_id = insert_rejection(result)
         print(f"  CARD: {result['roast']}")
-        return "roasted"
+        print(f"  stored: {rejection_id or 'already existed'}")
+        outcome = "roasted"
+    else:
+        outcome = result.get("category", "unknown")
+        print(f"  no card ({outcome})")
 
-    category = result.get("category", "unknown")
-    print(f"  no card ({category})")
-    return category
+    record_outcome(message_id, outcome)
+    return outcome
 
 
 def main() -> None:
