@@ -1,40 +1,74 @@
-"""Stopgap relevance gate: finds Job Apps messages that arrived recently.
+"""Resolves which Gmail messages the pipeline should process.
 
-Gmail's watch() fires on ANY mailbox change, not just Job Apps changes, since
-history tracking is mailbox-wide. This script is a temporary filter run as the
-first CI step -- it prints the id of every recent Job Apps message, one per
-line, so the workflow can skip the rest of the pipeline when the output is
-empty and otherwise knows exactly which messages to process.
-
-This is NOT the fully correct fix (that requires tracking the last-processed
-historyId and diffing against it via history.list(), which belongs in Phase 10
-once Supabase is wired up for state). The interface is the permanent part: this
-step's job is to answer "which messages should the pipeline handle," and the
-Phase 10 version will answer it properly without changing what consumes it.
+Gmail's push notification only says the mailbox changed, never which message
+arrived. This module answers that question, preferring a historyId diff against
+the stored cursor and falling back to a recency window when no usable cursor
+exists.
 """
 
 from datetime import datetime, timedelta, timezone
 
+from googleapiclient.errors import HttpError
+
 from copium.gmail_auth import JOB_APPS_LABEL_ID, get_gmail_service
+from copium.storage.queries import get_cursor, set_cursor
 
 WINDOW_MINUTES = 5
 SCAN_LIMIT = 10
 
 
-def recent_job_apps_messages(minutes: int = WINDOW_MINUTES) -> list[str]:
-    """Return the ids of Job Apps messages that arrived within the last N minutes.
-
-    Checks several recent messages rather than only the newest, because two
-    rejections can land seconds apart and a single-message check would silently
-    drop all but the last one.
-
-    Args:
-        minutes: how far back to consider a message "recent."
+def _from_history(service, start_history_id: int) -> tuple[list[str], int] | None:
+    """Diff the mailbox since start_history_id for added Job Apps messages.
 
     Returns:
-        Message ids, newest first. Empty when nothing relevant arrived.
+        (message ids, newest historyId), or None if the cursor is too old for
+        Gmail to serve, which happens after roughly a week.
     """
-    service = get_gmail_service()
+    message_ids: list[str] = []
+    newest = start_history_id
+    page_token = None
+
+    try:
+        while True:
+            response = (
+                service.users()
+                .history()
+                .list(
+                    userId="me",
+                    startHistoryId=str(start_history_id),
+                    labelId=JOB_APPS_LABEL_ID,
+                    historyTypes=["messageAdded"],
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+
+            for record in response.get("history", []):
+                newest = max(newest, int(record["id"]))
+                for added in record.get("messagesAdded", []):
+                    message = added["message"]
+                    if JOB_APPS_LABEL_ID in message.get("labelIds", []):
+                        message_ids.append(message["id"])
+
+            newest = max(newest, int(response.get("historyId", newest)))
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+    except HttpError as exc:
+        if exc.resp.status == 404:
+            return None
+        raise
+
+    # Preserve order but drop repeats: one message can appear in several records.
+    return list(dict.fromkeys(message_ids)), newest
+
+
+def _from_recent_window(service, minutes: int = WINDOW_MINUTES) -> list[str]:
+    """Fall back to listing Job Apps messages from the last N minutes.
+
+    Used on the first ever run and whenever the stored cursor has expired.
+    """
     listing = (
         service.users()
         .messages()
@@ -55,16 +89,41 @@ def recent_job_apps_messages(minutes: int = WINDOW_MINUTES) -> list[str]:
         arrived = datetime.fromtimestamp(
             int(message["internalDate"]) / 1000, tz=timezone.utc
         )
-
         if arrived <= cutoff:
-            # Gmail returns newest first, so everything after this is older too.
-            break
-
+            break  # Gmail returns newest first, so the rest are older too.
         recent.append(stub["id"])
 
     return recent
 
 
+def messages_to_process() -> list[str]:
+    """Return the Job Apps message ids the pipeline should handle now.
+
+    Advances the stored cursor on success so the next run picks up where this
+    one left off. Duplicate delivery is still possible, which is why claiming
+    in processed_messages remains necessary.
+    """
+    service = get_gmail_service()
+    cursor = get_cursor()
+
+    if cursor is not None:
+        result = _from_history(service, cursor)
+        if result is not None:
+            message_ids, newest = result
+            set_cursor(newest)
+            return message_ids
+        print("cursor expired, falling back to recency window")
+
+    message_ids = _from_recent_window(service)
+
+    # Reset the cursor from the mailbox's current position so the next run can
+    # diff properly instead of falling back again.
+    profile = service.users().getProfile(userId="me").execute()
+    set_cursor(int(profile["historyId"]))
+
+    return message_ids
+
+
 if __name__ == "__main__":
-    for message_id in recent_job_apps_messages():
+    for message_id in messages_to_process():
         print(message_id)

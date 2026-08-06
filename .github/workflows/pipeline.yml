@@ -30,6 +30,8 @@ jobs:
         env:
           GMAIL_CLIENT_SECRET_JSON: ${{ secrets.GMAIL_CLIENT_SECRET_JSON }}
           GMAIL_TOKEN_JSON: ${{ secrets.GMAIL_TOKEN_JSON }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: |
           ids=$(uv run python -m copium.gate | tr '\n' ' ' | xargs)
           echo "message_ids=$ids" >> "$GITHUB_OUTPUT"
