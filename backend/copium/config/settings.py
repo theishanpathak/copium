@@ -17,5 +17,8 @@ class Settings(BaseSettings):
     LANGFUSE_HOST: str = "https://us.cloud.langfuse.com"
     SUPABASE_URL: str
     SUPABASE_SECRET_KEY: str
+    GCP_PROJECT_ID: str = "copium-504602"
+    PUBSUB_TOPIC: str = "gmail-job-apps"
+    JOB_APPS_LABEL_ID: str = "Label_2983195907014674210"
 
 settings = Settings()

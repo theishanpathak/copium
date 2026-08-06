@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 
 from googleapiclient.errors import HttpError
 
-from copium.gmail_auth import JOB_APPS_LABEL_ID, get_gmail_service
-from copium.storage.queries import get_cursor, set_cursor
+from copium.config.settings import settings
+from copium.storage.queries import get_cursor
 
 WINDOW_MINUTES = 5
 SCAN_LIMIT = 10
@@ -36,7 +36,7 @@ def _from_history(service, start_history_id: int) -> tuple[list[str], int] | Non
                 .list(
                     userId="me",
                     startHistoryId=str(start_history_id),
-                    labelId=JOB_APPS_LABEL_ID,
+                    labelId=settings.JOB_APPS_LABEL_ID,
                     historyTypes=["messageAdded"],
                     pageToken=page_token,
                 )
@@ -47,7 +47,7 @@ def _from_history(service, start_history_id: int) -> tuple[list[str], int] | Non
                 newest = max(newest, int(record["id"]))
                 for added in record.get("messagesAdded", []):
                     message = added["message"]
-                    if JOB_APPS_LABEL_ID in message.get("labelIds", []):
+                    if settings.JOB_APPS_LABEL_ID in message.get("labelIds", []):
                         message_ids.append(message["id"])
 
             newest = max(newest, int(response.get("historyId", newest)))
@@ -72,7 +72,7 @@ def _from_recent_window(service, minutes: int = WINDOW_MINUTES) -> list[str]:
     listing = (
         service.users()
         .messages()
-        .list(userId="me", labelIds=[JOB_APPS_LABEL_ID], maxResults=SCAN_LIMIT)
+        .list(userId="me", labelIds=[settings.JOB_APPS_LABEL_ID], maxResults=SCAN_LIMIT)
         .execute()
     )
 
@@ -96,34 +96,21 @@ def _from_recent_window(service, minutes: int = WINDOW_MINUTES) -> list[str]:
     return recent
 
 
-def messages_to_process() -> list[str]:
-    """Return the Job Apps message ids the pipeline should handle now.
+def messages_to_process(service) -> tuple[list[str], int | None]:
+    """Return Job Apps message ids to handle now, plus the cursor value to
+    store once they have all been processed successfully.
 
-    Advances the stored cursor on success so the next run picks up where this
-    one left off. Duplicate delivery is still possible, which is why claiming
-    in processed_messages remains necessary.
+    The caller is responsible for advancing the cursor. Advancing it here
+    would skip past messages whose processing later failed.
     """
-    service = get_gmail_service()
     cursor = get_cursor()
 
     if cursor is not None:
         result = _from_history(service, cursor)
         if result is not None:
-            message_ids, newest = result
-            set_cursor(newest)
-            return message_ids
+            return result
         print("cursor expired, falling back to recency window")
 
     message_ids = _from_recent_window(service)
-
-    # Reset the cursor from the mailbox's current position so the next run can
-    # diff properly instead of falling back again.
     profile = service.users().getProfile(userId="me").execute()
-    set_cursor(int(profile["historyId"]))
-
-    return message_ids
-
-
-if __name__ == "__main__":
-    for message_id in messages_to_process():
-        print(message_id)
+    return message_ids, int(profile["historyId"])

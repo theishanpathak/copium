@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 Category = Literal["rejection", "advancement", "acknowledgment", "offer", "other"]
 
@@ -12,7 +12,6 @@ class PipelineState(BaseModel):
 
     # Entry point — supplied by the caller.
     message_id: str
-    history_id: str | None = None
 
     # Written by: fetch/parse
     subject: str | None = None
@@ -34,7 +33,7 @@ class PipelineState(BaseModel):
     notable_facts: list[str] | None = None
     has_research_material: bool | None = None
 
-   # Written by: roast (Phase 8)
+    # Written by: roast (Phase 8)
     roast: str | None = None
     roast_source_fact: str | None = None
 
