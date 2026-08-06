@@ -1,7 +1,6 @@
 """The Copium pipeline graph."""
 
 from langgraph.graph import START, END, StateGraph
-from langgraph.graph.state import CompiledStateGraph
 
 from copium.nodes.classifier import classify_node
 from copium.nodes.extractor import extract_node
