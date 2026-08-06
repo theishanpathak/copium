@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
     ROAST_MODEL: str = "gpt-4o"
     TAVILY_API_KEY: str
+    LANGFUSE_PUBLIC_KEY: str
+    LANGFUSE_SECRET_KEY: str
+    LANGFUSE_HOST: str = "https://us.cloud.langfuse.com"
 
 
 settings = Settings()
