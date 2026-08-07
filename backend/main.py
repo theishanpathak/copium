@@ -61,7 +61,7 @@ def process(message_id: str, service, handler: CallbackHandler) -> str:
         outcome = result.get("category", "unknown")
         print(f"  no card ({outcome})")
 
-    record_outcome(message_id, outcome)
+    record_outcome(message_id, outcome, email)
     return outcome
 
 

@@ -50,9 +50,23 @@ def release_message(message_id: str) -> None:
     client.table("processed_messages").delete().eq("message_id", message_id).execute()
 
 
-def record_outcome(message_id: str, outcome: str) -> None:
-    """Attach the outcome to an existing claim."""
-    client.table("processed_messages").update({"outcome": outcome}).eq(
+def record_outcome(message_id: str, outcome: str, email: dict | None = None) -> None:
+    """Attach the outcome and email details to an existing claim.
+
+    Email details are stored for every message, not just rejections, so
+    non-rejections can be listed and linked back to Gmail without opening
+    the mailbox to identify them.
+    """
+    update = {"outcome": outcome}
+
+    if email:
+        update |= {
+            "subject": email.get("subject"),
+            "sender": email.get("sender"),
+            "received_at": email.get("received_at"),
+        }
+
+    client.table("processed_messages").update(update).eq(
         "message_id", message_id
     ).execute()
 
