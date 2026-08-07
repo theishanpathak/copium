@@ -89,6 +89,7 @@ def insert_rejection(state: dict) -> str | None:
         "what_they_do": state.get("what_they_do"),
         "notable_facts": state.get("notable_facts"),
         "received_at": state.get("received_at"),
+        "rejection_quote": state.get("classification_reasoning"),
     }
 
     try:
