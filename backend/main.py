@@ -16,6 +16,7 @@ from copium.fetch import fetch_email
 from copium.gate import messages_to_process
 from copium.gmail_auth import get_gmail_service
 from copium.graph import graph
+from copium.notify import notify_card
 from copium.storage.queries import (
     claim_message,
     insert_rejection,
@@ -56,6 +57,15 @@ def process(message_id: str, service, handler: CallbackHandler) -> str:
         rejection_id = insert_rejection(result)
         print(f"  CARD: {result['roast']}")
         print(f"  stored: {rejection_id or 'already existed'}")
+
+        # Only notify on a genuinely new card. A None id means this message was
+        # already stored, so a retry should not re-notify.
+        if rejection_id:
+            try:
+                notify_card(result["company_name"], result["roast"])
+            except Exception as exc:
+                print(f"  [notify] skipped: {type(exc).__name__}: {exc}")
+
         outcome = "roasted"
     else:
         outcome = result.get("category", "unknown")
