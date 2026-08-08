@@ -2,6 +2,7 @@ from langfuse.openai import OpenAI
 from pydantic import BaseModel
 
 from copium.config.settings import settings
+from copium.log import detail, step
 from copium.state import PipelineState
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -134,8 +135,9 @@ def roast_node(state: PipelineState) -> dict:
         )
 
     result = write_roast(state)
-    print(f"  [roast] built on: {result.chosen_fact}")
-    print(f"  {result.roast}")
+    step("roast", f"{len(result.roast)} chars")
+    detail(f"built on: {result.chosen_fact}")
+    detail(result.roast)
 
     return {
         "roast": result.roast,

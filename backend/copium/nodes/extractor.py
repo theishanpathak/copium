@@ -2,6 +2,7 @@ from langfuse.openai import OpenAI
 from pydantic import BaseModel
 
 from copium.config.settings import settings
+from copium.log import detail, step
 from copium.state import PipelineState
 
 MAX_BODY_CHARS = 4000
@@ -72,7 +73,9 @@ def extract_node(state: PipelineState) -> dict:
         )
 
     result = extract_email(state)
-    print(f"  [extract] {result.company_name} — {result.role} — {result.reasoning}")
+    step("extract", "ok")
+    detail(f"{result.company_name} — {result.role}")
+    detail(result.reasoning)
 
     return {
         "company_name": result.company_name,

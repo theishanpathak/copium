@@ -4,6 +4,7 @@ from langfuse.openai import OpenAI
 from pydantic import BaseModel
 
 from copium.config.settings import settings
+from copium.log import detail, step
 from copium.state import PipelineState, Category
 
 MAX_BODY_CHARS = 4000
@@ -71,7 +72,8 @@ def classify_node(state: PipelineState) -> dict:
     result = classify_email(state)
     is_rejection = result.category == "rejection"
 
-    print(f"  [classify] {result.category} — {result.reasoning}")
+    step("classify", result.category)
+    detail(result.reasoning)
 
     return {
         "category": result.category,

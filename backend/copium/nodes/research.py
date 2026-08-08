@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from tavily import TavilyClient
 
 from copium.config.settings import settings
+from copium.log import detail, step
 from copium.state import PipelineState
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -126,8 +127,8 @@ def research_node(state: PipelineState) -> dict:
         )
 
     result = research_company(state)
-    print(f"  [research] {state.company_name} | material={result.has_material} | "
-          f"{len(result.notable_facts)} facts")
+    step("research", f"material={result.has_material} facts={len(result.notable_facts)}")
+    detail(state.company_name or "")
 
     return {
         "what_they_do": result.what_they_do,
