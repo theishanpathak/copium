@@ -57,7 +57,7 @@ export function Archive({
           onClick={onCloseDetail}
         >
           <div
-            className="w-full max-w-sm animate-card-in"
+            className="aspect-4/5 w-full max-w-sm animate-card-in"
             onClick={(event) => event.stopPropagation()}
           >
             <RoastCard card={detail} />
