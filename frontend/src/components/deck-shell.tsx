@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Archive } from "@/components/archive";
+import { PushToggle } from "@/components/push-toggle";
 import { RoastStack } from "@/components/roast-stack";
 import type { Card } from "@/lib/types";
 
@@ -27,10 +28,11 @@ export function DeckShell({ cards }: { cards: Card[] }) {
   return (
     <>
       <main className="flex min-h-dvh flex-col items-center justify-center px-5 py-16">
-        <div className="fixed inset-x-0 top-0 flex items-center justify-between px-5 py-4 font-mono text-[0.62rem] uppercase tracking-[0.2em] text-desk-dim">
+         <div className="fixed inset-x-0 top-0 flex items-center justify-between px-5 py-4 font-mono text-[0.62rem] uppercase tracking-[0.2em] text-desk-dim">
           <button onClick={() => setArchiveOpen(true)}>
             All {cards.length}
           </button>
+          <PushToggle />
           <span>{remaining > 0 ? `${remaining} unread` : "Clear"}</span>
         </div>
 
