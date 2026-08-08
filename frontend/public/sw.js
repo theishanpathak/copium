@@ -10,13 +10,24 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || "Copium", {
-      body: payload.body || "",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      tag: payload.tag || "copium",
-      data: { url: payload.url || "/" },
-    }),
+    Promise.all([
+      self.registration.showNotification(payload.title || "Copium", {
+        body: payload.body || "",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        tag: payload.tag || "copium",
+        data: { url: payload.url || "/" },
+      }),
+
+      // Tell any open window to refetch. Without this a card arriving while
+      // the app is in the foreground never appears, since standalone PWAs have
+      // no reload button and visibilitychange never fires.
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((windows) => {
+          for (const win of windows) win.postMessage({ type: "new-card" });
+        }),
+    ]),
   );
 });
 

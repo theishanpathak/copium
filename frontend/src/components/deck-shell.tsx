@@ -33,6 +33,18 @@ export function DeckShell({ cards }: { cards: Card[] }) {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [router]);
 
+  // The service worker posts this when a push arrives, so a card appears in a
+  // foregrounded app without waiting for a visibility change.
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.data?.type === "new-card") router.refresh();
+    }
+
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () =>
+      navigator.serviceWorker?.removeEventListener("message", onMessage);
+  }, [router]);
+
   // A refresh drops swiped cards out of `unread`, so the session's filed set is
   // spent and RoastStack's internal index would point past the end.
   useEffect(() => {
