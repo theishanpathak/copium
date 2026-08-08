@@ -15,6 +15,7 @@ dependencies = [
     "openai>=2.53.0",
     "pydantic-settings>=2.14.2",
     "python-dotenv>=1.2.2",
+    "pywebpush>=2.4.0",
     "supabase>=2.31.0",
     "tavily-python>=0.7.27",
 ]
