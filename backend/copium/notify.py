@@ -1,13 +1,28 @@
 """Send Web Push notifications for newly filed cards."""
 
 import json
+import re
 
 from pywebpush import WebPushException, webpush
 
 from copium.config.settings import settings
+from copium.log import step, detail
 from copium.storage.queries import delete_subscription, get_subscriptions
 
 MAX_BODY_CHARS = 120
+
+ACTIONABLE = {"advancement", "offer"}
+
+TITLES = {
+    "advancement": "They want to talk",
+    "offer": "An offer",
+}
+
+
+def _sender_name(sender: str) -> str:
+    """'Stripe Recruiting <no-reply@ashbyhq.com>' -> 'Stripe Recruiting'."""
+    match = re.match(r'\s*"?([^"<]+?)"?\s*<', sender)
+    return (match.group(1) if match else sender).strip()
 
 
 def _payload(company: str, roast: str) -> str:
@@ -25,23 +40,18 @@ def _payload(company: str, roast: str) -> str:
         }
     )
 
+def _send(payload: str) -> int:
+    """Deliver one payload to every registered device.
 
-def notify_card(company: str, roast: str) -> int:
-    """Push a new card to every registered device.
-
-    Subscriptions expire when a browser is reinstalled or the user revokes
-    permission. The push service reports that as 404 or 410, and the row is
+    Subscriptions expire when a browser is reinstalled or permission is
+    revoked. The push service reports that as 404 or 410, and the row is
     deleted rather than retried forever.
-
-    Returns:
-        How many devices were reached.
     """
     subscriptions = get_subscriptions()
     if not subscriptions:
-        print("  [notify] no subscriptions registered")
+        step("notify", "no subscriptions")
         return 0
 
-    payload = _payload(company, roast)
     delivered = 0
 
     for subscription in subscriptions:
@@ -65,9 +75,36 @@ def notify_card(company: str, roast: str) -> int:
 
             if status in (404, 410):
                 delete_subscription(subscription["endpoint"])
-                print(f"  [notify] dropped expired subscription ({status})")
+                step("notify", f"dropped expired subscription ({status})")
             else:
-                print(f"  [notify] failed ({status}): {exc}")
+                step("notify", f"failed ({status})")
 
-    print(f"  [notify] delivered to {delivered}/{len(subscriptions)}")
+    step("notify", f"delivered {delivered}/{len(subscriptions)}")
     return delivered
+
+
+def notify_card(company: str, roast: str) -> int:
+    """Push a new roast card to every registered device."""
+    return _send(_payload(company, roast))
+
+
+def notify_action(category: str, email: dict, message_id: str) -> int:
+    """Push a time-sensitive non-rejection, linking straight to Gmail.
+
+    These get no card and no roast. The point is speed: an interview invite
+    should reach the phone and open the real email in one tap.
+    """
+    sender = _sender_name(email.get("sender", ""))
+    subject = email.get("subject", "")
+
+    payload = json.dumps(
+        {
+            "title": TITLES.get(category, "Something arrived"),
+            "body": f"{sender} · {subject}" if sender else subject,
+            "url": "/",
+            # Per-message tag so two invites do not collapse into one banner.
+            "tag": f"copium-{message_id}",
+        }
+    )
+
+    return _send(payload)

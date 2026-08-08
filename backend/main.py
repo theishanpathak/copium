@@ -17,7 +17,7 @@ from copium.gate import messages_to_process
 from copium.gmail_auth import get_gmail_service
 from copium.graph import graph
 from copium.log import detail, step
-from copium.notify import notify_card
+from copium.notify import ACTIONABLE, notify_action, notify_card
 from copium.storage.queries import (
     claim_message,
     insert_rejection,
@@ -71,6 +71,14 @@ def process(message_id: str, service, handler: CallbackHandler) -> str:
     else:
         outcome = result.get("category", "unknown")
         step("exit", outcome)
+
+        # Interview invites and offers are time-sensitive and produce no card,
+        # so they would otherwise vanish silently.
+        if outcome in ACTIONABLE:
+            try:
+                notify_action(outcome, email, message_id)
+            except Exception as exc:
+                step("notify", f"skipped: {type(exc).__name__}")
 
     record_outcome(message_id, outcome, email)
     return outcome
