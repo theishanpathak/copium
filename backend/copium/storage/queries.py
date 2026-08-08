@@ -99,3 +99,16 @@ def insert_rejection(state: dict) -> str | None:
         if "duplicate key" in str(exc) or "23505" in str(exc):
             return None
         raise
+
+
+def get_subscriptions() -> list[dict]:
+    """Every device registered for push."""
+    response = (
+        client.table("push_subscriptions").select("endpoint, p256dh, auth").execute()
+    )
+    return response.data or []
+
+
+def delete_subscription(endpoint: str) -> None:
+    """Remove a subscription the push service has reported as gone."""
+    client.table("push_subscriptions").delete().eq("endpoint", endpoint).execute()
