@@ -17,6 +17,12 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Copium",
   description: "Rejection emails, roasted.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Copium",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
