@@ -12,6 +12,7 @@ _BLOCK_TAGS_TO_DROP = re.compile(
 )
 _ANY_TAG = re.compile(r"<[^>]+>")
 _WHITESPACE = re.compile(r"\s+")
+_URL = re.compile(r"https?://\S+")
 
 
 def decode_body(data: str) -> str:
@@ -32,10 +33,22 @@ def html_to_text(raw_html: str) -> str:
     return _clean_text(without_tags)
 
 
+def _readable_length(text: str) -> int:
+    """Length of text ignoring URLs, as a proxy for how much it actually says.
+
+    Used only for comparison. URLs stay in the returned body because some
+    senders encode the outcome in a tracking parameter and nowhere else.
+    """
+    return len(_URL.sub(" ", text).strip())
+
+
 def extract_body(payload: dict[str, Any]) -> str:
     """Walk a MIME tree for the best text body.
 
-    Prefers text/plain; falls back to text/html converted via html_to_text.
+    Prefers text/plain, except when it says almost nothing. Senders like
+    LinkedIn put only navigation and legal boilerplate in the plain-text part
+    and the real message in HTML, so compare readable content and take whichever
+    actually carries the email.
     """
     plain: list[str] = []
     html_parts: list[str] = []
@@ -53,11 +66,12 @@ def extract_body(payload: dict[str, Any]) -> str:
 
     walk(payload)
 
-    if plain:
-        return _clean_text("\n".join(plain))
-    if html_parts:
-        return html_to_text("\n".join(html_parts))
-    return ""
+    plain_text = _clean_text("\n".join(plain)) if plain else ""
+    html_text = html_to_text("\n".join(html_parts)) if html_parts else ""
+
+    if _readable_length(html_text) > _readable_length(plain_text):
+        return html_text
+    return plain_text or html_text
 
 
 def _clean_text(text: str) -> str:
