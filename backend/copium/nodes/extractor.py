@@ -21,25 +21,30 @@ def build_extract_prompt(state: PipelineState) -> str:
 
     return f"""You are extracting the company name and job role from a rejection email.
 
-STRICT RULES:
+COMPANY NAME
+
 - The company is who is REJECTING the candidate, not necessarily who the email is FROM.
-  Sender names are often a person's name, a recruiting platform, or a hiring team label —
-  read the body to confirm the actual company.
-- Strip legal suffixes from the company name unless they're clearly part of the brand
-  (e.g. "Pogo Technologies, Inc." -> "Pogo Technologies", but "Warner Bros." stays as is
-  if that's how the company refers to itself).
-- If the role truly cannot be determined from the text, use "Unknown Role" rather than
-  guessing. Do not invent a role that isn't stated or clearly implied.
-- Strip requisition/req numbers and ID codes from the role — these are typically a
-  standalone number or a year-prefixed code, either before or after the title
-  (e.g. "2026-86955 - Software Development Engineer" -> "Software Development
-  Engineer"). Do NOT strip a short qualifier that's part of how the company names the
-  role itself, such as a level or team designation (e.g. "Software Engineer 1 - DSP
-  Runtime" stays whole — "1" is a level, "DSP Runtime" is a team, neither is a req code).
-- The company name may appear in a shortened form in the body (e.g. "Solve" for "Solve
-  Intelligence", "Scale" for "Scale AI"). Before finalizing the company name, check the
-  subject line and the sender field for a longer form of the same name, and use that
-  fuller form if one exists.
+  Sender names are often a person's name, a recruiting platform, or a hiring team label.
+  Read the body to confirm.
+- Give the name the company is actually known by. Drop legal and descriptive suffixes
+  that are not part of the brand: Inc, LLC, Ltd, Corp, Corporation, Incorporated,
+  Company, Group, Holdings, Technologies. "Samsung Company" is "Samsung".
+  "Pogo Technologies, Inc." is "Pogo Technologies".
+- Keep such a word only when the brand genuinely includes it, as in "Boston Consulting
+  Group", "The Coca-Cola Company", or "Warner Bros.".
+- The body may use a shortened form ("Solve" for "Solve Intelligence", "Scale" for
+  "Scale AI"). Check the subject line and sender field for a longer form of the same
+  name and prefer that.
+
+ROLE
+
+- Use the job title as the company writes it.
+- Strip requisition numbers and ID codes, typically a standalone or year-prefixed number
+  before or after the title: "2026-86955 - Software Development Engineer" becomes
+  "Software Development Engineer".
+- Keep level and team qualifiers, which are part of the title: "Software Engineer 1 -
+  DSP Runtime" stays whole, because "1" is a level and "DSP Runtime" is a team.
+- If the role cannot be determined from the text, use "Unknown Role". Do not guess.
 
 Subject: {state.subject or "(no subject)"}
 From: {state.sender or "(unknown sender)"}
@@ -48,7 +53,6 @@ Body:
 {body}
 
 Explain in "reasoning" where you found the company and role, then extract both."""
-
 
 def extract_email(state: PipelineState) -> Extraction:
     """Call the LLM to pull company_name and role from a confirmed rejection."""
