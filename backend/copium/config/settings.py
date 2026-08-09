@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     VAPID_SUBJECT: str = ""
 
     OPENAI_MODEL: str = "gpt-4o-mini"
-    ROAST_MODEL: str = "gpt-4o"
+    ROAST_MODEL: str = "gpt-5.6-luna"
     LANGFUSE_HOST: str = "https://us.cloud.langfuse.com"
     GCP_PROJECT_ID: str = "copium-504602"
     PUBSUB_TOPIC: str = "gmail-job-apps"
