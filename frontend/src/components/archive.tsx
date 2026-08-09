@@ -1,69 +1,70 @@
 "use client";
 
-import { RoastCard } from "@/components/roast-card";
-import { sequence } from "@/lib/format";
+import { relativeTime, sequence } from "@/lib/format";
 import type { Card } from "@/lib/types";
 
 type Props = {
   cards: Card[];
-  detail: Card | null;
-  onOpen: (card: Card) => void;
-  onCloseDetail: () => void;
+  onTogglePublish: (card: Card) => void;
   onClose: () => void;
 };
 
-/** Full-screen grid of every card, with a tap-to-enlarge detail view. */
-export function Archive({
-  cards,
-  detail,
-  onOpen,
-  onCloseDetail,
-  onClose,
-}: Props) {
-  return (
-    <>
-      <div className="fixed inset-0 z-10 overflow-y-auto bg-desk px-4 pb-16 pt-6">
-        <div className="mx-auto flex max-w-2xl items-baseline justify-between pb-4 font-mono text-[0.62rem] uppercase tracking-[0.2em] text-desk-dim">
-          <span>Archive · {cards.length}</span>
-          <button onClick={onClose} className="uppercase tracking-[0.2em]">
-            Close
-          </button>
-        </div>
+/**
+ * Every card as a readable list. The roast is the thing being judged, so it
+ * gets the space; company and date are supporting detail. Published rows carry
+ * a coloured rule so the state of the whole list is scannable without reading
+ * each button.
+ */
+export function Archive({ cards, onTogglePublish, onClose }: Props) {
+  const publishedCount = cards.filter((card) => card.published).length;
 
-        <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {cards.map((card) => (
-            <button
-              key={card.id}
-              onClick={() => onOpen(card)}
-              className="flex aspect-4/5 flex-col justify-between rounded-lg bg-paper px-3 py-2.5 text-left text-ink"
-            >
-              <span className="font-mono text-[0.55rem] uppercase tracking-[0.16em] text-ink-soft">
-                {sequence(card.seq)}
-              </span>
-              <span className="text-base font-bold leading-[0.95] tracking-tight">
-                {card.company}
-              </span>
-              <span className="font-mono text-[0.5rem] uppercase tracking-[0.16em] text-stamp">
-                {!card.viewed ? "Unread" : card.published ? "Published" : ""}
-              </span>
-            </button>
-          ))}
-        </div>
+  return (
+    <div className="fixed inset-0 z-10 overflow-y-auto bg-desk px-5 pb-20 pt-6">
+      <div className="mx-auto flex max-w-xl items-baseline justify-between pb-5 font-mono text-[0.62rem] uppercase tracking-[0.2em] text-desk-dim">
+        <span>
+          {cards.length} filed · {publishedCount} on the wall
+        </span>
+        <button onClick={onClose}>Close</button>
       </div>
 
-      {detail && (
-        <div
-          className="fixed inset-0 z-20 flex items-center justify-center bg-black/85 p-5"
-          onClick={onCloseDetail}
-        >
-          <div
-            className="aspect-4/5 w-full max-w-sm animate-card-in"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <RoastCard card={detail} />
-          </div>
-        </div>
+      {cards.length === 0 ? (
+        <p className="py-24 text-center font-mono text-[0.62rem] uppercase tracking-[0.18em] text-desk-dim">
+          Nothing yet
+        </p>
+      ) : (
+        <ul className="mx-auto max-w-xl">
+          {cards.map((card) => (
+            <li
+              key={card.id}
+              className={`border-l-2 py-5 pl-4 ${
+                card.published ? "border-stamp" : "border-white/10"
+              }`}
+            >
+              <p className="text-[0.95rem] leading-relaxed text-paper text-pretty">
+                {card.roast}
+              </p>
+
+              <div className="mt-3 flex items-center justify-between gap-4">
+                <p className="min-w-0 truncate font-mono text-[0.55rem] uppercase tracking-[0.16em] text-desk-dim">
+                  {card.company} · {sequence(card.seq)}
+                  {card.receivedAt && ` · ${relativeTime(card.receivedAt)}`}
+                </p>
+
+                <button
+                  onClick={() => onTogglePublish(card)}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 font-mono text-[0.55rem] uppercase tracking-[0.16em] transition-colors ${
+                    card.published
+                      ? "border-stamp text-stamp"
+                      : "border-white/20 text-desk-dim hover:border-white/40 hover:text-paper"
+                  }`}
+                >
+                  {card.published ? "On the wall" : "Publish"}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
-    </>
+    </div>
   );
 }
