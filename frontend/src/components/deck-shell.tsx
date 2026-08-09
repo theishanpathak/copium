@@ -12,10 +12,17 @@ export function DeckShell({ cards }: { cards: Card[] }) {
   const router = useRouter();
 
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [detail, setDetail] = useState<Card | null>(null);
   const [filed, setFiled] = useState<Set<string>>(new Set());
 
-  const unread = cards.filter((card) => !card.viewed);
+  // Publish toggles applied locally so the list responds immediately rather
+  // than waiting on a refetch. Cleared whenever fresh server data arrives.
+  const [published, setPublished] = useState<Record<string, boolean>>({});
+
+  const merged = cards.map((card) =>
+    card.id in published ? { ...card, published: published[card.id] } : card,
+  );
+
+  const unread = merged.filter((card) => !card.viewed);
 
   // Identity of the current server data. Changes only when a refresh brings a
   // different set of unread cards, never on a swipe.
@@ -46,21 +53,37 @@ export function DeckShell({ cards }: { cards: Card[] }) {
   }, [router]);
 
   // A refresh drops swiped cards out of `unread`, so the session's filed set is
-  // spent and RoastStack's internal index would point past the end.
+  // spent and RoastStack's internal index would point past the end. Local
+  // publish overrides are also stale once the server has them.
   useEffect(() => {
     setFiled(new Set());
+    setPublished({});
   }, [stackKey]);
 
   const remaining = unread.filter((card) => !filed.has(card.id)).length;
 
-  function handleFile(card: Card, published: boolean) {
+  function handleFile(card: Card, isPublished: boolean) {
     setFiled((prev) => new Set(prev).add(card.id));
 
     fetch("/api/viewed", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: card.id, published }),
+      body: JSON.stringify({ id: card.id, published: isPublished }),
     }).catch((error) => console.error("mark viewed failed", error));
+  }
+
+  function handleTogglePublish(card: Card) {
+    const next = !card.published;
+    setPublished((prev) => ({ ...prev, [card.id]: next }));
+
+    fetch("/api/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: card.id, published: next }),
+    }).catch((error) => {
+      console.error("publish toggle failed", error);
+      setPublished((prev) => ({ ...prev, [card.id]: !next }));
+    });
   }
 
   return (
@@ -87,14 +110,9 @@ export function DeckShell({ cards }: { cards: Card[] }) {
 
       {archiveOpen && (
         <Archive
-          cards={cards}
-          detail={detail}
-          onOpen={setDetail}
-          onCloseDetail={() => setDetail(null)}
-          onClose={() => {
-            setDetail(null);
-            setArchiveOpen(false);
-          }}
+          cards={merged}
+          onTogglePublish={handleTogglePublish}
+          onClose={() => setArchiveOpen(false)}
         />
       )}
     </>
