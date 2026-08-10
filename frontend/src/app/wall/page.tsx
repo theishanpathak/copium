@@ -11,6 +11,15 @@ export const metadata: Metadata = {
     "Every job rejection I get is read, researched, and roasted automatically.",
 };
 
+/** Pinned to the top in this order. Everything else is shuffled, because
+ *  chronology means nothing to a first-time visitor and the stronger cards
+ *  should not always end up at the bottom. */
+const PINNED = [
+  "9b29d1c2-17c8-490a-b765-97cc4393112f",
+  "c7c66782-71da-4ea0-b8a3-2ea2319fab07",
+  "8de4dc93-2317-4c3f-a049-00b32bca700e",
+];
+
 const PIPELINE = [
   ["Gmail push", "A notification the moment mail arrives. No polling."],
   ["Classify", "Rejection, interview invite, acknowledgment, or noise."],
@@ -19,6 +28,15 @@ const PIPELINE = [
   ["Roast", "Two sentences about what turned up."],
   ["My phone", "Card lands about thirty seconds after the email."],
 ];
+
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 /** The pipeline timeline. Rendered inside a disclosure on mobile and in the
  *  sidebar on desktop, so it lives here rather than being written twice. */
@@ -79,6 +97,16 @@ export default async function Wall() {
     viewed: true,
     published: true,
   }));
+
+  // A pinned id that is not published simply drops out rather than breaking.
+  const pinned = PINNED.map((id) => cards.find((card) => card.id === id)).filter(
+    (card): card is Card => card !== undefined,
+  );
+
+  const ordered = [
+    ...pinned,
+    ...shuffle(cards.filter((card) => !PINNED.includes(card.id))),
+  ];
 
   return (
     <div className="mx-auto max-w-[100rem] px-5 pb-24 pt-14 lg:px-10 lg:pt-20">
@@ -141,13 +169,13 @@ export default async function Wall() {
 
       <div className="mt-12 grid gap-12 lg:grid-cols-[1fr_17rem] lg:gap-14">
         <section>
-          {cards.length === 0 ? (
+          {ordered.length === 0 ? (
             <p className="py-24 text-center font-mono text-[0.62rem] uppercase tracking-[0.18em] text-desk-dim">
               Nothing published yet
             </p>
           ) : (
             <div className="grid auto-rows-fr gap-6 [grid-template-columns:repeat(auto-fill,minmax(20rem,1fr))]">
-              {cards.map((card) => (
+              {ordered.map((card) => (
                 <RoastCard key={card.id} card={card} />
               ))}
             </div>
